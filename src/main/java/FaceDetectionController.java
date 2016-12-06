@@ -50,10 +50,6 @@ public class FaceDetectionController
     @FXML
     private ImageView originalFrame;
     // checkboxes for enabling/disabling a classifier
-    @FXML
-    private CheckBox haarClassifier;
-    @FXML
-    private CheckBox lbpClassifier;
 
     // a timer for acquiring the video stream
     private ScheduledExecutorService timer;
@@ -64,20 +60,22 @@ public class FaceDetectionController
 
     // face cascade classifier
     private CascadeClassifier faceCascade ;
+    // Classifiers for left-right eyes
+    private CascadeClassifier   lefEyeClassifier;
+    private CascadeClassifier   rightEyeClassifier;
+
     private int absoluteFaceSize;
 
     /**
      * Init the controller, at start time
      */
-    protected void init()
-    {
+    protected void init() {
         this.capture = new VideoCapture();
-        this.faceCascade = new CascadeClassifier();
+        this.faceCascade = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerNEW\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
+        lefEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerNEW\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
+        rightEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerNEW\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
         this.absoluteFaceSize = 0;
 
-        if ( faceCascade.empty() ) {
-            System.out.println("pusto");
-        }
     }
 
     /**
@@ -91,9 +89,6 @@ public class FaceDetectionController
         originalFrame.setPreserveRatio(true);
 
         if (!this.cameraActive) {
-            // disable setting checkboxes
-            this.haarClassifier.setDisable(true);
-            this.lbpClassifier.setDisable(true);
 
             // start the video capture
             this.capture.open(0);
@@ -128,9 +123,6 @@ public class FaceDetectionController
             this.cameraActive = false;
             // update again the button content
             this.cameraButton.setText("Start Camera");
-            // enable classifiers checkboxes
-            this.haarClassifier.setDisable(false);
-            this.lbpClassifier.setDisable(false);
 
             // stop the timer
             try
@@ -227,33 +219,7 @@ public class FaceDetectionController
             Imgproc.rectangle(frame, facesArray[i].tl(), facesArray[i].br(), new Scalar(0, 255, 0), 3);
 
     }
-
-    /**
-     * The action triggered by selecting the Haar Classifier checkbox. It loads
-     * the trained set to be used for frontal face detection.
-     */
-    @FXML
-    protected void haarSelected(Event event) {
-        // check whether the lpb checkbox is selected and deselect it
-        if (this.lbpClassifier.isSelected())
-            this.lbpClassifier.setSelected(false);
-
-        this.checkboxSelection("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascades\\haarcascade_frontalface_alt.xml");
-    }
-
-    /**
-     * The action triggered by selecting the LBP Classifier checkbox. It loads
-     * the trained set to be used for frontal face detection.
-     */
-    @FXML
-    protected void lbpSelected(Event event) {
-        // check whether the haar checkbox is selected and deselect it
-        if (this.haarClassifier.isSelected())
-            this.haarClassifier.setSelected(false);
-
-        this.checkboxSelection("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\lbpcascades\\lbpcascade_frontalface.xml");
-    }
-
+    
     /**
      * Method for loading a classifier trained set from disk
      *
