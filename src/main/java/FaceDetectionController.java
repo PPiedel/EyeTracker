@@ -4,12 +4,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfByte;
-import org.opencv.core.MatOfRect;
-import org.opencv.core.Rect;
-import org.opencv.core.Scalar;
-import org.opencv.core.Size;
+import org.opencv.core.*;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
@@ -65,6 +60,9 @@ public class FaceDetectionController
     private CascadeClassifier   rightEyeClassifier;
 
     private int absoluteFaceSize;
+
+    // rectangle used to extract eye region - ROI
+    private Rect eyearea = new Rect();
 
     /**
      * Init the controller, at start time
@@ -189,8 +187,7 @@ public class FaceDetectionController
      * @param frame
      *            it looks for faces in this frame
      */
-    private void detectAndDisplay(Mat frame)
-    {
+    private void detectAndDisplay(Mat frame) {
         MatOfRect faces = new MatOfRect();
         Mat grayFrame = new Mat();
 
@@ -213,25 +210,26 @@ public class FaceDetectionController
         this.faceCascade.detectMultiScale(grayFrame, faces, 1.1, 2, Objdetect.CASCADE_SCALE_IMAGE,
                 new Size(this.absoluteFaceSize, this.absoluteFaceSize), new Size());
 
-        // each rectangle in faces is a face: draw them!
+
         Rect[] facesArray = faces.toArray();
-        for (int i = 0; i < facesArray.length; i++)
-            Imgproc.rectangle(frame, facesArray[i].tl(), facesArray[i].br(), new Scalar(0, 255, 0), 3);
+        for (Rect faceRect : facesArray) {
+            // draw rectangle around each face
+            Imgproc.rectangle(frame, faceRect.tl(), faceRect.br(), new Scalar(0, 255, 0), 3);
 
-    }
-    
-    /**
-     * Method for loading a classifier trained set from disk
-     *
-     * @param classifierPath
-     *            the path on disk where a classifier trained set is located
-     */
-    private void checkboxSelection(String classifierPath) {
-        // load the classifier(s)
-        this.faceCascade.load(classifierPath);
+            // compute the eye area
+            eyearea = new Rect(faceRect.x +faceRect.width/8,(int)(faceRect.y + (faceRect.height/4.5)),faceRect.width - 2*faceRect.width/8,(int)(faceRect.height/3.0));
 
-        // now the video capture can start
-        this.cameraButton.setDisable(false);
+            // split it
+            Rect eyearea_right = new Rect(faceRect.x +faceRect.width/16,(int)(faceRect.y + (faceRect.height/4.5)),(faceRect.width - 2*faceRect.width/16)/2,(int)( faceRect.height/3.0));
+            Rect eyearea_left = new Rect(faceRect.x +faceRect.width/16 +(faceRect.width - 2*faceRect.width/16)/2,(int)(faceRect.y + (faceRect.height/4.5)),(faceRect.width - 2*faceRect.width/16)/2,(int)( faceRect.height/3.0));
+
+            //draw splitted eye area
+            Imgproc.rectangle(frame,eyearea_left.tl(),eyearea_left.br() , new Scalar(255,0, 0, 255), 2);
+            Imgproc.rectangle(frame,eyearea_right.tl(),eyearea_right.br() , new Scalar(255, 0, 0, 255), 2);
+        }
+
+
+
     }
 
     /**
