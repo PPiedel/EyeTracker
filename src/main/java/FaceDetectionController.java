@@ -11,40 +11,23 @@ import org.opencv.objdetect.CascadeClassifier;
 import org.opencv.objdetect.Objdetect;
 import org.opencv.videoio.VideoCapture;
 
-import javafx.event.Event;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
+import static org.opencv.imgproc.Imgproc.*;
 
 
-
-/**
- * The controller associated with the only view of our application. The
- * application logic is implemented here. It handles the button for
- * starting/stopping the camera, the acquired video stream, the relative
- * controls and the face detection/tracking.
- *
- * @author <a href="mailto:luigi.derussis@polito.it">Luigi De Russis</a>
- * @version 1.1 (2015-11-10)
- * @since 1.0 (2014-01-10)
- *
- */
-public class FaceDetectionController
-{
-
+public class FaceDetectionController {
     private final int framesPerSecond = 33;
     private final int initialDelay = 0;
 
-    // FXML buttons
     @FXML
     private Button cameraButton;
     // the FXML area for showing the current frame
     @FXML
     private ImageView originalFrame;
-    // checkboxes for enabling/disabling a classifier
 
     // a timer for acquiring the video stream
     private ScheduledExecutorService timer;
@@ -59,10 +42,21 @@ public class FaceDetectionController
     private CascadeClassifier   lefEyeClassifier;
     private CascadeClassifier   rightEyeClassifier;
 
-    private int absoluteFaceSize;
+    private Mat frame;
+    private Mat grayFrame;
 
+    // Helper Mat
+    private Mat mResult;
+    // match value
+    private double match_value;
+    private int absoluteFaceSize;
     // rectangle used to extract eye region - ROI
     private Rect eyearea = new Rect();
+    // counter of learning frames
+    private int learn_frames = 0;
+    // Mat for templates
+    private Mat rightEyeTemplate;
+    private Mat leftEyeTemplate;
 
     /**
      * Init the controller, at start time
@@ -123,13 +117,11 @@ public class FaceDetectionController
             this.cameraButton.setText("Start Camera");
 
             // stop the timer
-            try
-            {
+            try {
                 this.timer.shutdown();
                 this.timer.awaitTermination(framesPerSecond, TimeUnit.MILLISECONDS);
             }
-            catch (InterruptedException e)
-            {
+            catch (InterruptedException e) {
                 // log the exception
                 System.err.println("Exception in stopping the frame capture, trying to release the camera now... " + e);
             }
@@ -141,28 +133,20 @@ public class FaceDetectionController
         }
     }
 
-    /**
-     * Get a frame from the opened video stream (if any)
-     *
-     * @return the {@link Image} to show
-     */
-    private Image grabFrame()
-    {
+   /*Get frame from camera*/
+    private Image grabFrame() {
         // init everything
         Image imageToShow = null;
-        Mat frame = new Mat();
+        frame = new Mat();
 
         // check if the capture is open
-        if (this.capture.isOpened())
-        {
-            try
-            {
+        if (this.capture.isOpened()) {
+            try {
                 // read the current frame
                 this.capture.read(frame);
 
                 // if the frame is not empty, process it
-                if (!frame.empty())
-                {
+                if (!frame.empty()) {
                     // face detection
                     this.detectAndDisplay(frame);
 
@@ -171,8 +155,7 @@ public class FaceDetectionController
                 }
 
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 // log the (full) error
                 System.err.println("ERROR: " + e);
             }
@@ -181,15 +164,10 @@ public class FaceDetectionController
         return imageToShow;
     }
 
-    /**
-     * Method for face detection and tracking
-     *
-     * @param frame
-     *            it looks for faces in this frame
-     */
+    /*Detect face, eyes*/
     private void detectAndDisplay(Mat frame) {
         MatOfRect faces = new MatOfRect();
-        Mat grayFrame = new Mat();
+        grayFrame = new Mat();
 
         // convert the frame in gray scale
         Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
@@ -226,19 +204,105 @@ public class FaceDetectionController
             //draw splitted eye area
             Imgproc.rectangle(frame,eyearea_left.tl(),eyearea_left.br() , new Scalar(255,0, 0, 255), 2);
             Imgproc.rectangle(frame,eyearea_right.tl(),eyearea_right.br() , new Scalar(255, 0, 0, 255), 2);
+
+            if(learn_frames<5){
+                rightEyeTemplate = getTemplate(rightEyeClassifier,eyearea_right,24);
+                leftEyeTemplate = getTemplate(lefEyeClassifier,eyearea_left,24);
+                learn_frames++;
+            }else{
+                // Learning finished, use the new templates for template matching
+                match_value = match_eye(eyearea_right,rightEyeTemplate,TM_SQDIFF);
+                match_value = match_eye(eyearea_left,leftEyeTemplate,TM_SQDIFF);
+            }
         }
-
-
 
     }
 
-    /**
-     * Convert a Mat object (OpenCV) in the corresponding Image for JavaFX
-     *
-     * @param frame
-     *            the {@link Mat} representing the current frame
-     * @return the {@link Image} to show
-     */
+
+    private double  match_eye(Rect area, Mat mTemplate,int type){
+        Point matchLoc;
+        Mat mROI = grayFrame.submat(area);
+        int result_cols =  mROI.cols() - mTemplate.cols() + 1;
+        int result_rows = mROI.rows() - mTemplate.rows() + 1;
+        //Check for bad template size
+        if(mTemplate.cols()==0 ||mTemplate.rows()==0){
+            return 0.0;
+        }
+        mResult = new Mat(result_cols, result_rows, CvType.CV_8U);
+
+        switch (type){
+            case TM_SQDIFF:
+                Imgproc.matchTemplate(mROI, mTemplate, mResult, TM_SQDIFF) ;
+                break;
+            case TM_SQDIFF_NORMED:
+                Imgproc.matchTemplate(mROI, mTemplate, mResult, TM_SQDIFF_NORMED) ;
+                break;
+            case TM_CCOEFF:
+                Imgproc.matchTemplate(mROI, mTemplate, mResult, Imgproc.TM_CCOEFF) ;
+                break;
+            case TM_CCOEFF_NORMED:
+                Imgproc.matchTemplate(mROI, mTemplate, mResult, Imgproc.TM_CCOEFF_NORMED) ;
+                break;
+            case TM_CCORR:
+                Imgproc.matchTemplate(mROI, mTemplate, mResult, TM_CCORR) ;
+                break;
+            case TM_CCORR_NORMED:
+                Imgproc.matchTemplate(mROI, mTemplate, mResult, TM_CCORR_NORMED) ;
+                break;
+        }
+
+        Core.MinMaxLocResult mmres =  Core.minMaxLoc(mResult);
+        // there is difference in matching methods - best match is max/min value
+        if(type == TM_SQDIFF || type == TM_SQDIFF_NORMED)
+        { matchLoc = mmres.minLoc; }
+        else
+        { matchLoc = mmres.maxLoc; }
+
+        Point  matchLoc_tx = new Point(matchLoc.x+area.x,matchLoc.y+area.y);
+        Point  matchLoc_ty = new Point(matchLoc.x + mTemplate.cols() + area.x , matchLoc.y + mTemplate.rows()+area.y );
+
+        Imgproc.rectangle(frame, matchLoc_tx,matchLoc_ty, new Scalar(255, 255, 0, 255));
+
+        if(type == TM_SQDIFF || type == TM_SQDIFF_NORMED)
+        { return mmres.maxVal; }
+        else
+        { return mmres.minVal; }
+
+    }
+
+    private Mat getTemplate(CascadeClassifier classifier, Rect area, int size){
+        Mat template = new Mat();
+        Mat mROI = grayFrame.submat(area);
+        MatOfRect eyes = new MatOfRect();
+        Point iris = new Point();
+        Rect eye_template = new Rect();
+        classifier.detectMultiScale(mROI, eyes, 1.15, 2,Objdetect.CASCADE_FIND_BIGGEST_OBJECT|Objdetect.CASCADE_SCALE_IMAGE, new Size(30,30),new Size());
+
+        Rect[] eyesArray = eyes.toArray();
+        for (int i = 0; i < eyesArray.length; i++){
+            Rect e = eyesArray[i];
+            e.x = area.x + e.x;
+            e.y = area.y + e.y;
+            Rect eye_only_rectangle = new Rect((int)e.tl().x,(int)( e.tl().y + e.height*0.4),(int)e.width,(int)(e.height*0.6));
+            // reduce ROI
+            mROI = grayFrame.submat(eye_only_rectangle);
+            Mat vyrez = frame.submat(eye_only_rectangle);
+            // find the darkness point
+            Core.MinMaxLocResult mmG = Core.minMaxLoc(mROI);
+            // draw point to visualise pupil
+            Imgproc.circle(vyrez, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
+            iris.x = mmG.minLoc.x + eye_only_rectangle.x;
+            iris.y = mmG.minLoc.y + eye_only_rectangle.y;
+            eye_template = new Rect((int)iris.x-size/2,(int)iris.y-size/2 ,size,size);
+            Imgproc.rectangle(frame,eye_template.tl(),eye_template.br(),new Scalar(255, 0, 0, 255), 2);
+            // copy area to template
+            template = (grayFrame.submat(eye_template)).clone();
+            return template;
+        }
+        return template;
+    }
+
+    //Convert a Mat object (OpenCV) in the corresponding image(to show)
     private Image mat2Image(Mat frame) {
         // create a temporary buffer
         MatOfByte buffer = new MatOfByte();
