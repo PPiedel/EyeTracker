@@ -16,8 +16,6 @@ import javafx.scene.control.Button;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
-import static org.opencv.imgproc.Imgproc.*;
-
 
 public class FaceDetectionController {
     private final int framesPerSecond = 33;
@@ -25,7 +23,7 @@ public class FaceDetectionController {
 
     @FXML
     private Button cameraButton;
-    // the FXML area for showing the current frame
+    // the FXML area for showing the current rgbFrame
     @FXML
     private ImageView originalFrame;
 
@@ -42,8 +40,9 @@ public class FaceDetectionController {
     private CascadeClassifier   lefEyeClassifier;
     private CascadeClassifier   rightEyeClassifier;
 
-    private Mat frame;
+    private Mat rgbFrame;
     private Mat grayFrame;
+    private Mat mZoomWindow;
 
     // Helper Mat
     private Mat mResult;
@@ -57,15 +56,16 @@ public class FaceDetectionController {
     // Mat for templates
     private Mat rightEyeTemplate;
     private Mat leftEyeTemplate;
+    private Mat hierarchy = new Mat();
 
     /**
      * Init the controller, at start time
      */
     protected void init() {
         this.capture = new VideoCapture();
-        this.faceCascade = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerNEW\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
-        lefEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerNEW\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
-        rightEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerNEW\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
+        this.faceCascade = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
+        lefEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
+        rightEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
         this.absoluteFaceSize = 0;
 
     }
@@ -75,7 +75,7 @@ public class FaceDetectionController {
      */
     @FXML
     protected void startCamera() {
-        // set a fixed width for the frame
+        // set a fixed width for the rgbFrame
         originalFrame.setFitWidth(600);
         // preserve image ratio
         originalFrame.setPreserveRatio(true);
@@ -89,7 +89,7 @@ public class FaceDetectionController {
             if (this.capture.isOpened()) {
                 this.cameraActive = true;
 
-                // grab a frame every 33 ms (30 frames/sec)
+                // grab a rgbFrame every 33 ms (30 frames/sec)
                 Runnable frameGrabber = new Runnable() {
 
                     public void run()
@@ -123,35 +123,35 @@ public class FaceDetectionController {
             }
             catch (InterruptedException e) {
                 // log the exception
-                System.err.println("Exception in stopping the frame capture, trying to release the camera now... " + e);
+                System.err.println("Exception in stopping the rgbFrame capture, trying to release the camera now... " + e);
             }
 
             // release the camera
             this.capture.release();
-            // clean the frame
+            // clean the rgbFrame
             this.originalFrame.setImage(null);
         }
     }
 
-   /*Get frame from camera*/
+   /*Get rgbFrame from camera*/
     private Image grabFrame() {
         // init everything
         Image imageToShow = null;
-        frame = new Mat();
+        rgbFrame = new Mat();
 
         // check if the capture is open
         if (this.capture.isOpened()) {
             try {
-                // read the current frame
-                this.capture.read(frame);
+                // read the current rgbFrame
+                this.capture.read(rgbFrame);
 
-                // if the frame is not empty, process it
-                if (!frame.empty()) {
+                // if the rgbFrame is not empty, process it
+                if (!rgbFrame.empty()) {
                     // face detection
-                    this.detectAndDisplay(frame);
+                    this.detectAndDisplay(rgbFrame);
 
                     // convert the Mat object (OpenCV) to Image (JavaFX)
-                    imageToShow = mat2Image(frame);
+                    imageToShow = mat2Image(rgbFrame);
                 }
 
             }
@@ -169,12 +169,12 @@ public class FaceDetectionController {
         MatOfRect faces = new MatOfRect();
         grayFrame = new Mat();
 
-        // convert the frame in gray scale
+        // convert the rgbFrame in gray scale
         Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
-        // equalize the frame histogram to improve the result
+        // equalize the rgbFrame histogram to improve the result
         Imgproc.equalizeHist(grayFrame, grayFrame);
 
-        // compute minimum face size (20% of the frame height, in our case)
+        // compute minimum face size (20% of the rgbFrame height, in our case)
         if (this.absoluteFaceSize == 0)
         {
             int height = grayFrame.rows();
@@ -205,112 +205,94 @@ public class FaceDetectionController {
             Imgproc.rectangle(frame,eyearea_left.tl(),eyearea_left.br() , new Scalar(255,0, 0, 255), 2);
             Imgproc.rectangle(frame,eyearea_right.tl(),eyearea_right.br() , new Scalar(255, 0, 0, 255), 2);
 
-            if(learn_frames<5){
-                rightEyeTemplate = getTemplate(rightEyeClassifier,eyearea_right,24);
-                leftEyeTemplate = getTemplate(lefEyeClassifier,eyearea_left,24);
-                learn_frames++;
-            }else{
-                // Learning finished, use the new templates for template matching
-                match_value = match_eye(eyearea_right,rightEyeTemplate,TM_SQDIFF);
-                match_value = match_eye(eyearea_left,leftEyeTemplate,TM_SQDIFF);
-            }
+            detectEye(lefEyeClassifier,eyearea_left,100);
+            detectEye(lefEyeClassifier,eyearea_right,100);
         }
 
     }
 
-
-    private double  match_eye(Rect area, Mat mTemplate,int type){
-        Point matchLoc;
-        Mat mROI = grayFrame.submat(area);
-        int result_cols =  mROI.cols() - mTemplate.cols() + 1;
-        int result_rows = mROI.rows() - mTemplate.rows() + 1;
-        //Check for bad template size
-        if(mTemplate.cols()==0 ||mTemplate.rows()==0){
-            return 0.0;
-        }
-        mResult = new Mat(result_cols, result_rows, CvType.CV_8U);
-
-        switch (type){
-            case TM_SQDIFF:
-                Imgproc.matchTemplate(mROI, mTemplate, mResult, TM_SQDIFF) ;
-                break;
-            case TM_SQDIFF_NORMED:
-                Imgproc.matchTemplate(mROI, mTemplate, mResult, TM_SQDIFF_NORMED) ;
-                break;
-            case TM_CCOEFF:
-                Imgproc.matchTemplate(mROI, mTemplate, mResult, Imgproc.TM_CCOEFF) ;
-                break;
-            case TM_CCOEFF_NORMED:
-                Imgproc.matchTemplate(mROI, mTemplate, mResult, Imgproc.TM_CCOEFF_NORMED) ;
-                break;
-            case TM_CCORR:
-                Imgproc.matchTemplate(mROI, mTemplate, mResult, TM_CCORR) ;
-                break;
-            case TM_CCORR_NORMED:
-                Imgproc.matchTemplate(mROI, mTemplate, mResult, TM_CCORR_NORMED) ;
-                break;
-        }
-
-        Core.MinMaxLocResult mmres =  Core.minMaxLoc(mResult);
-        // there is difference in matching methods - best match is max/min value
-        if(type == TM_SQDIFF || type == TM_SQDIFF_NORMED)
-        { matchLoc = mmres.minLoc; }
-        else
-        { matchLoc = mmres.maxLoc; }
-
-        Point  matchLoc_tx = new Point(matchLoc.x+area.x,matchLoc.y+area.y);
-        Point  matchLoc_ty = new Point(matchLoc.x + mTemplate.cols() + area.x , matchLoc.y + mTemplate.rows()+area.y );
-
-        Imgproc.rectangle(frame, matchLoc_tx,matchLoc_ty, new Scalar(255, 255, 0, 255));
-
-        if(type == TM_SQDIFF || type == TM_SQDIFF_NORMED)
-        { return mmres.maxVal; }
-        else
-        { return mmres.minVal; }
-
-    }
-
-    private Mat getTemplate(CascadeClassifier classifier, Rect area, int size){
+    private Mat detectEye(CascadeClassifier clasificator, Rect area, int size) {
         Mat template = new Mat();
         Mat mROI = grayFrame.submat(area);
         MatOfRect eyes = new MatOfRect();
         Point iris = new Point();
-        Rect eye_template = new Rect();
-        classifier.detectMultiScale(mROI, eyes, 1.15, 2,Objdetect.CASCADE_FIND_BIGGEST_OBJECT|Objdetect.CASCADE_SCALE_IMAGE, new Size(30,30),new Size());
+
+        //isolate the eyes first
+        clasificator.detectMultiScale(mROI, eyes, 1.15, 2, Objdetect.CASCADE_FIND_BIGGEST_OBJECT
+                | Objdetect.CASCADE_SCALE_IMAGE, new Size(30, 30), new Size());
 
         Rect[] eyesArray = eyes.toArray();
-        for (int i = 0; i < eyesArray.length; i++){
-            Rect e = eyesArray[i];
-            e.x = area.x + e.x;
-            e.y = area.y + e.y;
-            Rect eye_only_rectangle = new Rect((int)e.tl().x,(int)( e.tl().y + e.height*0.4),(int)e.width,(int)(e.height*0.6));
-            // reduce ROI
-            mROI = grayFrame.submat(eye_only_rectangle);
-            Mat vyrez = frame.submat(eye_only_rectangle);
-            // find the darkness point
+        for (int i = 0; i < eyesArray.length;) {
+            Rect eye = eyesArray[i];
+            eye.x = area.x + eye.x;
+            eye.y = area.y + eye.y;
+            Rect eye_only_rectangle = new Rect((int) eye.tl().x, (int) (eye.tl().y + eye.height * 0.4), (int) eye.width,
+                    (int) (eye.height * 0.6));
+
             Core.MinMaxLocResult mmG = Core.minMaxLoc(mROI);
-            // draw point to visualise pupil
-            Imgproc.circle(vyrez, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
+
             iris.x = mmG.minLoc.x + eye_only_rectangle.x;
             iris.y = mmG.minLoc.y + eye_only_rectangle.y;
-            eye_template = new Rect((int)iris.x-size/2,(int)iris.y-size/2 ,size,size);
-            Imgproc.rectangle(frame,eye_template.tl(),eye_template.br(),new Scalar(255, 0, 0, 255), 2);
-            // copy area to template
-            template = (grayFrame.submat(eye_template)).clone();
+            Imgproc.rectangle(rgbFrame, eye_only_rectangle.tl(), eye_only_rectangle.br(), new Scalar(255, 255, 0, 255), 2);
+
+            //find the pupil inside the eye rect
+            detectPupil(eye_only_rectangle);
+
             return template;
         }
+
         return template;
     }
 
+    private void detectPupil(Rect eyeRect) {
+        hierarchy = new Mat();
+
+        Mat img = rgbFrame.submat(eyeRect);
+        Mat img_hue = new Mat();
+
+        Mat circles = new Mat();
+
+        // / Convert it to hue, convert to range color, and blur to remove false
+        // circles
+        Imgproc.cvtColor(img, img_hue, Imgproc.COLOR_RGB2HSV);// COLOR_BGR2HSV);
+
+        Core.inRange(img_hue, new Scalar(0, 0, 0), new Scalar(255, 255, 32), img_hue);
+
+        Imgproc.erode(img_hue, img_hue, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(3, 3)));
+
+        Imgproc.dilate(img_hue, img_hue, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(6, 6)));
+
+        Imgproc.Canny(img_hue, img_hue, 170, 220);
+        Imgproc.GaussianBlur(img_hue, img_hue, new Size(9, 9), 2, 2);
+        // Apply Hough Transform to find the circles
+        Imgproc.HoughCircles(img_hue, circles, Imgproc.CV_HOUGH_GRADIENT, 3, img_hue.rows(), 200, 75, 10, 25);
+
+        if (circles.cols() > 0) {
+            for (int x = 0; x < circles.cols(); x++) {
+                double vCircle[] = circles.get(0, x);
+
+                if (vCircle == null)
+                    break;
+
+                Point pt = new Point(Math.round(vCircle[0]), Math.round(vCircle[1]));
+                int radius = (int) Math.round(vCircle[2]);
+
+                // draw the found circle
+                Imgproc.circle(img, pt, radius, new Scalar(0, 255, 0), 2);
+                Imgproc.circle(img, pt, 3, new Scalar(0, 0, 255), 2);
+            }
+        }
+    }
     //Convert a Mat object (OpenCV) in the corresponding image(to show)
     private Image mat2Image(Mat frame) {
         // create a temporary buffer
         MatOfByte buffer = new MatOfByte();
-        // encode the frame in the buffer, according to the PNG format
+        // encode the rgbFrame in the buffer, according to the PNG format
         Imgcodecs.imencode(".png", frame, buffer);
         // build and return an Image created from the image encoded in the
         // buffer
         return new Image(new ByteArrayInputStream(buffer.toArray()));
     }
+
 
 }
