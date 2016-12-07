@@ -1,9 +1,7 @@
-import java.io.ByteArrayInputStream;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-
+import javafx.fxml.FXML;
+import javafx.scene.control.Button;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import org.opencv.core.*;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
@@ -11,14 +9,17 @@ import org.opencv.objdetect.CascadeClassifier;
 import org.opencv.objdetect.Objdetect;
 import org.opencv.videoio.VideoCapture;
 
-import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
+import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 
 
 public class FaceDetectionController {
-    private final int framesPerSecond = 33;
+    private final int framesPerSecond = 25;
     private final int initialDelay = 0;
 
     @FXML
@@ -41,17 +42,17 @@ public class FaceDetectionController {
 
     private Mat rgbFrame;
     private Mat grayFrame;
-    private Mat mZoomWindow;
 
-    // Helper Mat
-    private Mat mResult;
     // match value
     private int absoluteFaceSize;
     // rectangle used to extract eye region - ROI
     private Rect eyearea = new Rect();
-    private Mat hierarchy;
 
     Point iris = new Point();
+    List<Double> irisXPoints = new ArrayList<Double>();
+    List<Double> irisYPoints = new ArrayList<Double>();
+
+    private long frameNumber = 0;
 
     /**
      * Init the controller, at start time
@@ -84,7 +85,7 @@ public class FaceDetectionController {
             if (this.capture.isOpened()) {
                 this.cameraActive = true;
 
-                // grab a rgbFrame every 33 ms (30 frames/sec)
+                // grab a rgbFrame
                 Runnable frameGrabber = new Runnable() {
 
                     public void run()
@@ -156,10 +157,12 @@ public class FaceDetectionController {
             }
         }
 
+        frameNumber++;
+
         return imageToShow;
     }
 
-    /*Detect face, eyes*/
+
     private void detectAndDisplay(Mat frame) {
         MatOfRect faces = new MatOfRect();
         grayFrame = new Mat();
@@ -189,9 +192,6 @@ public class FaceDetectionController {
             // draw rectangle around each face
             Imgproc.rectangle(frame, faceRect.tl(), faceRect.br(), new Scalar(0, 255, 0), 3);
 
-            // compute the eye area
-            eyearea = new Rect(faceRect.x +faceRect.width/8,(int)(faceRect.y + (faceRect.height/4.5)),faceRect.width - 2*faceRect.width/8,(int)(faceRect.height/3.0));
-
             // split it
             Rect eyearea_right = new Rect(faceRect.x +faceRect.width/16,(int)(faceRect.y + (faceRect.height/4.5)),(faceRect.width - 2*faceRect.width/16)/2,(int)( faceRect.height/3.0));
             Rect eyearea_left = new Rect(faceRect.x +faceRect.width/16 +(faceRect.width - 2*faceRect.width/16)/2,(int)(faceRect.y + (faceRect.height/4.5)),(faceRect.width - 2*faceRect.width/16)/2,(int)( faceRect.height/3.0));
@@ -210,7 +210,6 @@ public class FaceDetectionController {
         Mat template = new Mat();
         Mat mROI = grayFrame.submat(area);
         MatOfRect eyes = new MatOfRect();
-        Point iris = new Point();
 
         //isolate the eyes first
         clasificator.detectMultiScale(mROI, eyes, 1.15, 2, Objdetect.CASCADE_FIND_BIGGEST_OBJECT
@@ -224,6 +223,7 @@ public class FaceDetectionController {
             Rect eye_only_rectangle = new Rect((int) eye.tl().x, (int) (eye.tl().y + eye.height * 0.4), (int) eye.width,
                     (int) (eye.height * 0.6));
 
+            //draw rectangle around each eye
             Imgproc.rectangle(rgbFrame, eye_only_rectangle.tl(), eye_only_rectangle.br(), new Scalar(255, 255, 0, 255), 2);
 
             //find the pupil inside the eye rect
@@ -238,17 +238,37 @@ public class FaceDetectionController {
     //find pupils - the darkness point vresion
     private void detectAndDisplayPupil(Rect eyeRect){
         Mat grayEyeMat = grayFrame.submat(eyeRect);
-        Mat rgbEyemat = rgbFrame.submat(eyeRect);
+        Mat rgbEyeMat = rgbFrame.submat(eyeRect);
+
+
+        Imgproc.GaussianBlur(grayEyeMat, grayEyeMat, new Size(9, 9), 2, 2);
+        Core.addWeighted(grayEyeMat,1.5,grayEyeMat,-0.5,0,grayEyeMat);
+
 
         // find the darkness point
         Core.MinMaxLocResult mmG = Core.minMaxLoc(grayEyeMat);
-        // draw point to visualise pupil
-        Imgproc.circle(rgbEyemat, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
-        iris.x = mmG.minLoc.x + eyeRect.x;
-        iris.y = mmG.minLoc.y + eyeRect.y;
 
-        System.out.println("Iris x :"+iris.x);
-        System.out.println("Iris y : "+iris.y);
+
+        irisXPoints.add(mmG.minLoc.x + eyeRect.x);
+        irisYPoints.add(mmG.minLoc.y + eyeRect.y);
+
+        if (frameNumber%5==0){
+
+            //assign median of iris coordinates from last 5 frames
+            iris.x = Utils.median(irisXPoints);
+            iris.y = Utils.median(irisYPoints);
+
+            irisXPoints.clear();
+            irisYPoints.clear();
+        }
+
+        // draw point to visualise pupil
+        Imgproc.circle(rgbEyeMat, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
+
+        //for debuging only
+        System.out.print("Iris x :"+iris.x);
+       System.out.print("Iris y : "+iris.y);
+       System.out.println("");
     }
 
     //Convert a Mat object (OpenCV) in the corresponding image(to show)
