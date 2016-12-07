@@ -34,9 +34,8 @@ public class FaceDetectionController {
     // a flag to change the button behavior
     private boolean cameraActive;
 
-    // face cascade classifier
+    // classifiers
     private CascadeClassifier faceCascade ;
-    // Classifiers for left-right eyes
     private CascadeClassifier   lefEyeClassifier;
     private CascadeClassifier   rightEyeClassifier;
 
@@ -47,16 +46,12 @@ public class FaceDetectionController {
     // Helper Mat
     private Mat mResult;
     // match value
-    private double match_value;
     private int absoluteFaceSize;
     // rectangle used to extract eye region - ROI
     private Rect eyearea = new Rect();
-    // counter of learning frames
-    private int learn_frames = 0;
-    // Mat for templates
-    private Mat rightEyeTemplate;
-    private Mat leftEyeTemplate;
-    private Mat hierarchy = new Mat();
+    private Mat hierarchy;
+
+    Point iris = new Point();
 
     /**
      * Init the controller, at start time
@@ -229,14 +224,10 @@ public class FaceDetectionController {
             Rect eye_only_rectangle = new Rect((int) eye.tl().x, (int) (eye.tl().y + eye.height * 0.4), (int) eye.width,
                     (int) (eye.height * 0.6));
 
-            Core.MinMaxLocResult mmG = Core.minMaxLoc(mROI);
-
-            iris.x = mmG.minLoc.x + eye_only_rectangle.x;
-            iris.y = mmG.minLoc.y + eye_only_rectangle.y;
             Imgproc.rectangle(rgbFrame, eye_only_rectangle.tl(), eye_only_rectangle.br(), new Scalar(255, 255, 0, 255), 2);
 
             //find the pupil inside the eye rect
-            detectPupil(eye_only_rectangle);
+            detectTheDarknessPoint(eye_only_rectangle);
 
             return template;
         }
@@ -244,6 +235,25 @@ public class FaceDetectionController {
         return template;
     }
 
+    //find pupils - the darkness point vresion
+    private void detectTheDarknessPoint(Rect eyeRect){
+        Mat mROI = grayFrame.submat(eyeRect);
+        Mat vyrez = rgbFrame.submat(eyeRect);
+
+        // find the darkness point
+        Core.MinMaxLocResult mmG = Core.minMaxLoc(mROI);
+        // draw point to visualise pupil
+        Imgproc.circle(vyrez, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
+        iris.x = mmG.minLoc.x + eyeRect.x;
+        iris.y = mmG.minLoc.y + eyeRect.y;
+
+        System.out.println("Iris x :"+iris.x);
+        System.out.println("Iris y : "+iris.y);
+    }
+
+
+
+    // HoughCircles version
     private void detectPupil(Rect eyeRect) {
         hierarchy = new Mat();
 
@@ -256,18 +266,19 @@ public class FaceDetectionController {
         // circles
         Imgproc.cvtColor(img, img_hue, Imgproc.COLOR_RGB2HSV);// COLOR_BGR2HSV);
 
-        Core.inRange(img_hue, new Scalar(0, 0, 0), new Scalar(255, 255, 32), img_hue);
+         Core.inRange(img_hue, new Scalar(0, 0, 0), new Scalar(255, 255, 32), img_hue);
 
         Imgproc.erode(img_hue, img_hue, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(3, 3)));
 
         Imgproc.dilate(img_hue, img_hue, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(6, 6)));
 
         Imgproc.Canny(img_hue, img_hue, 170, 220);
+
         Imgproc.GaussianBlur(img_hue, img_hue, new Size(9, 9), 2, 2);
         // Apply Hough Transform to find the circles
-        Imgproc.HoughCircles(img_hue, circles, Imgproc.CV_HOUGH_GRADIENT, 3, img_hue.rows(), 200, 75, 10, 25);
+        Imgproc.HoughCircles(img_hue, circles, Imgproc.CV_HOUGH_GRADIENT, 3, img_hue.rows(), 200, 100, 0, 0);
 
-        if (circles.cols() > 0) {
+        if (circles.cols() > 0)
             for (int x = 0; x < circles.cols(); x++) {
                 double vCircle[] = circles.get(0, x);
 
@@ -275,13 +286,15 @@ public class FaceDetectionController {
                     break;
 
                 Point pt = new Point(Math.round(vCircle[0]), Math.round(vCircle[1]));
+                System.out.println("X point : "+pt.x);
+                System.out.println("Y point : "+pt.y);
                 int radius = (int) Math.round(vCircle[2]);
 
                 // draw the found circle
                 Imgproc.circle(img, pt, radius, new Scalar(0, 255, 0), 2);
                 Imgproc.circle(img, pt, 3, new Scalar(0, 0, 255), 2);
             }
-        }
+
     }
     //Convert a Mat object (OpenCV) in the corresponding image(to show)
     private Image mat2Image(Mat frame) {
