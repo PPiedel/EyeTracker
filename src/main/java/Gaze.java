@@ -4,33 +4,33 @@ import org.opencv.core.Point;
  * Created by Pawel on 2016-12-18.
  */
 public class Gaze {
-    private Point leftIris;
-    private Point rightIris;
+    private Point leftPupil;
+    private Point rightPupil;
 
 
-    public Gaze(Point leftIris, Point rightIris) {
-        this.leftIris = leftIris;
-        this.rightIris = rightIris;
+    public Gaze(Point leftIris, Point rightPupil) {
+        this.leftPupil = leftIris;
+        this.rightPupil = rightPupil;
     }
 
-    public Point getLeftIris() {
-        return leftIris;
+    public Point getLeftPupil() {
+        return leftPupil;
     }
 
-    public void setLeftIris(Point leftIris) {
-        this.leftIris = leftIris;
+    public void setLeftPupil(Point leftPupil) {
+        this.leftPupil = leftPupil;
     }
 
-    public Point getRightIris() {
-        return rightIris;
+    public Point getRightPupil() {
+        return rightPupil;
     }
 
-    public void setRightIris(Point rightIris) {
-        this.rightIris = rightIris;
+    public void setRightPupil(Point rightPupil) {
+        this.rightPupil = rightPupil;
     }
 
     @Override
     public String toString() {
-        return "Gaze : " + "leftIris = ( " + leftIris.x + ","+leftIris.y+" )" + "rightIris = (" + rightIris.x + "," + rightIris.y+")" ;
+        return "Gaze : " + "leftPupil = ( " + leftPupil.x + ","+ leftPupil.y+" )" + "rightPupil = (" + rightPupil.x + "," + rightPupil.y+")" ;
     }
 }

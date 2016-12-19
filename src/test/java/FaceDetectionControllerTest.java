@@ -1,48 +1,52 @@
 import org.junit.Test;
 import org.opencv.core.Point;
 
-import static org.junit.Assert.*;
-
 /**
  * Created by Pawel on 2016-12-19.
  */
 public class FaceDetectionControllerTest {
+
     @Test
-    public void calculateXDistanceTest() throws Exception {
-        //given
-        Point point1 = new Point(0,0);
-        Point point2 = new Point(100,50);
+        public void calculateXLeftIrisRangeTest() throws Exception {
+            FaceDetectionController faceDetectionController = new FaceDetectionController();
+            Gaze leftPosition = new Gaze(new Point(100,150),new Point(150,150));
+            Gaze rightPosition = new Gaze(new Point(150,150),new Point(220,150));
 
-        double result = Utils.calculateXDistance(point1,point2);
+            double xIrisRange = faceDetectionController.calculateXPupilRange(leftPosition,rightPosition,Pupils.LEFT_PUPIL);
 
-        //then
-        assert result == 100;
-
+        assert xIrisRange == 50;
     }
 
     @Test
-    public void calculateXDistanceTestShouldGiveZero() throws Exception {
-        //given
-        Point point1 = new Point(0,27);
-        Point point2 = new Point(0,50);
+    public void calculateXLeftIrisRangeTestShouldReturnZero() throws Exception {
+        FaceDetectionController faceDetectionController = new FaceDetectionController();
+        Gaze leftPosition = new Gaze(new Point(100,150),new Point(150,150));
+        Gaze rightPosition = new Gaze(new Point(100,150),new Point(220,150));
 
-        double result = Utils.calculateXDistance(point1,point2);
+        double xIrisRange = faceDetectionController.calculateXPupilRange(leftPosition,rightPosition,Pupils.LEFT_PUPIL);
 
-        //then
-        assert result == 0;
-
+        assert xIrisRange == 0;
     }
 
     @Test
-    public void calculateXDistanceTestShouldReturnZero() throws Exception {
-        //given
-        Point point1  = new Point();
-        Point point2  = new Point();
+    public void calculateXRightIrisRangeTestShouldReturnZero() throws Exception {
+        FaceDetectionController faceDetectionController = new FaceDetectionController();
+        Gaze leftPosition = new Gaze(new Point(100,150),new Point(150,150));
+        Gaze rightPosition = new Gaze(new Point(200,150),new Point(150,150));
 
-        double result = Utils.calculateXDistance(point1,point2);
+        double xIrisRange = faceDetectionController.calculateXPupilRange(leftPosition,rightPosition,Pupils.RIGHT_PUPIL);
 
-        //then
-        assert result == 0;
+        assert xIrisRange == 0;
+    }
 
+    @Test
+    public void calculateXRightIrisRangeTest() throws Exception {
+        FaceDetectionController faceDetectionController = new FaceDetectionController();
+        Gaze leftPosition = new Gaze(new Point(100,150),new Point(150,150));
+        Gaze rightPosition = new Gaze(new Point(150,150),new Point(220,150));
+
+        double xIrisRange = faceDetectionController.calculateXPupilRange(leftPosition,rightPosition,Pupils.RIGHT_PUPIL);
+
+        assert xIrisRange == 70;
     }
 }

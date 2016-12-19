@@ -46,20 +46,22 @@ public class FaceDetectionController {
 
     // match value
     private int absoluteFaceSize;
-    // rectangle used to extract eye region - ROI
-    private Rect eyearea = new Rect();
 
-    private Point leftIris = new Point();
-    private List<Double> leftIrisXPoints = new ArrayList<Double>();
-    private List<Double> leftIrisYPoints = new ArrayList<Double>();
+    private Point leftPupil = new Point();
+    private List<Double> leftPupilXPoints = new ArrayList<Double>();
+    private List<Double> leftPupilYPoints = new ArrayList<Double>();
 
-    private Point rightIris = new Point();
-    private List<Double> rightIrisXPoints = new ArrayList<Double>();
-    private List<Double> rightIrisYPoints = new ArrayList<Double>();
+    private Point rightPupil = new Point();
+    private List<Double> rightPupilXPoints = new ArrayList<Double>();
+    private List<Double> rightPupilYPoints = new ArrayList<Double>();
 
-    private HashMap<String,Gaze> calibratePoints ;
+    private HashMap<String,Gaze> calibratePoints = new HashMap<String, Gaze>(4) ;
     private int calibrationNumber = 0;
 
+    private double xLeftPupilRange = 0;
+    private double yLeftPupilRange = 0;
+    private double xRightPupilRange = 0;
+    private double yRightPupilRange = 0;
 
     private long frameNumber = 0;
 
@@ -80,42 +82,76 @@ public class FaceDetectionController {
     protected void calibrate(){
       switch (calibrationNumber){
           case 0 :
-              calibratePoints.put("leftUpperCorner",new Gaze(leftIris,rightIris));
+              calibratePoints.put("leftUpperCorner",new Gaze(leftPupil, rightPupil));
               calibrationNumber++;
               Gaze leftUpperCorner = calibratePoints.get("leftUpperCorner");
               System.out.println("Left upper corner : " + leftUpperCorner.toString());
               break;
           case 1 :
-              calibratePoints.put("leftBottomCorner",new Gaze(leftIris,rightIris));
+              calibratePoints.put("leftBottomCorner",new Gaze(leftPupil, rightPupil));
               Gaze leftBottomCorner = calibratePoints.get("leftBottomCorner");
               System.out.println("Left bottom corner : " + leftBottomCorner.toString());
               calibrationNumber++;
               break;
           case 2 :
-              calibratePoints.put("rightBottomCorner",new Gaze(leftIris,rightIris));
+              calibratePoints.put("rightBottomCorner",new Gaze(leftPupil, rightPupil));
               Gaze rightBottomCorner = calibratePoints.get("rightBottomCorner");
               System.out.println("Right bottom corner : " + rightBottomCorner.toString());
               calibrationNumber++;
               break;
           case 3 :
-              calibratePoints.put("rightUpperCorner",new Gaze(leftIris,rightIris));
+              calibratePoints.put("rightUpperCorner",new Gaze(leftPupil, rightPupil));
               Gaze rightUpperCorner = calibratePoints.get("rightUpperCorner");
               System.out.println("Right upper corner : " + rightUpperCorner.toString());
               calibrationNumber++;
+
+              assignPupilsRanges();
+
               break;
           default:
               break;
       }
     }
 
-    private Point calculatePointOnImage(Point point){
-        Point pointOnImage = new Point();
+    private void assignPupilsRanges() {
+        double xLeftPupilUpperRange = calculateXPupilRange(calibratePoints.get("leftUpperCorner"),calibratePoints.get("rightUpperCorner"),Pupils.LEFT_PUPIL);
+        double xLeftPupilBottomRange = calculateXPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("rightBottomCorner"), Pupils.LEFT_PUPIL);
+        xLeftPupilRange = (xLeftPupilBottomRange+xLeftPupilUpperRange)/2;
 
-        return  pointOnImage;
+        double xRightPupilUpperRange = calculateXPupilRange(calibratePoints.get("leftUpperCorner"),calibratePoints.get("rightUpperCorner"),Pupils.RIGHT_PUPIL);
+        double xRightPupilBottomRange = calculateXPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("rightBottomCorner"), Pupils.RIGHT_PUPIL);
+        xRightPupilRange = (xRightPupilUpperRange+xRightPupilBottomRange)/2;
+
+        double yRightPupilUpperRange = calculateYPupilRange(calibratePoints.get("leftUpperCorner"),calibratePoints.get("rightUpperCorner"),Pupils.RIGHT_PUPIL);
+        double yRightPupilBottomRange = calculateYPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("rightBottomCorner"), Pupils.RIGHT_PUPIL);
+        yRightPupilRange = (yRightPupilUpperRange+yRightPupilBottomRange)/2;
+
+        double yLeftPupilUpperRange = calculateYPupilRange(calibratePoints.get("leftUpperCorner"),calibratePoints.get("rightUpperCorner"),Pupils.LEFT_PUPIL);
+        double yLeftPupilBottomRange = calculateYPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("rightBottomCorner"), Pupils.LEFT_PUPIL);
+        yLeftPupilRange = (yLeftPupilBottomRange+yLeftPupilUpperRange)/2;
+
+
     }
 
+    public double calculateXPupilRange(Gaze leftPosition, Gaze rightPosition, Pupils pupil){
+        if (pupil==Pupils.LEFT_PUPIL){
+            return Utils.calculateXDistance(leftPosition.getLeftPupil(),rightPosition.getLeftPupil());
+        }
+        else if (pupil==Pupils.RIGHT_PUPIL){
+            return Utils.calculateXDistance(leftPosition.getRightPupil(),rightPosition.getRightPupil());
+        }
+        return 0;
+    }
 
-
+    public double calculateYPupilRange(Gaze leftPosition, Gaze rightPosition, Pupils pupil){
+        if (pupil==Pupils.LEFT_PUPIL){
+            return Utils.calculateYDistance(leftPosition.getLeftPupil(),rightPosition.getLeftPupil());
+        }
+        else if (pupil==Pupils.RIGHT_PUPIL){
+            return Utils.calculateYDistance(leftPosition.getRightPupil(),rightPosition.getRightPupil());
+        }
+        return 0;
+    }
 
 
     @FXML
@@ -356,25 +392,25 @@ public class FaceDetectionController {
         Core.MinMaxLocResult mmG = Core.minMaxLoc(grayEyeMat);
 
 
-        leftIrisXPoints.add(mmG.minLoc.x + eyeRect.x);
-        leftIrisYPoints.add(mmG.minLoc.y + eyeRect.y);
+        leftPupilXPoints.add(mmG.minLoc.x + eyeRect.x);
+        leftPupilYPoints.add(mmG.minLoc.y + eyeRect.y);
 
         if (frameNumber%5==0){
 
-            //assign median of leftIris coordinates from last 5 frames
-            leftIris.x = Utils.median(leftIrisXPoints);
-            leftIris.y = Utils.median(leftIrisYPoints);
+            //assign median of leftPupil coordinates from last 5 frames
+            leftPupil.x = Utils.median(leftPupilXPoints);
+            leftPupil.y = Utils.median(leftPupilYPoints);
 
-            leftIrisXPoints.clear();
-            leftIrisYPoints.clear();
+            leftPupilXPoints.clear();
+            leftPupilYPoints.clear();
         }
 
         // draw point to visualise pupil
         Imgproc.circle(rgbEyeMat, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
 
         //for debuging only
-       // System.out.print("Left leftIris x :"+ leftIris.x);
-       //System.out.print("Left leftIris y : "+ leftIris.y);
+       // System.out.print("Left leftPupil x :"+ leftPupil.x);
+       //System.out.print("Left leftPupil y : "+ leftPupil.y);
       // System.out.println("");
     }
 
@@ -391,38 +427,38 @@ public class FaceDetectionController {
         Core.MinMaxLocResult mmG = Core.minMaxLoc(grayEyeMat);
 
 
-        rightIrisXPoints.add(mmG.minLoc.x + eyeRect.x);
-        rightIrisYPoints.add(mmG.minLoc.y + eyeRect.y);
+        rightPupilXPoints.add(mmG.minLoc.x + eyeRect.x);
+        rightPupilYPoints.add(mmG.minLoc.y + eyeRect.y);
 
         if (frameNumber%5==0){
 
-            //assign median of leftIris coordinates from last 5 frames
-            rightIris.x = Utils.median(rightIrisXPoints);
-            rightIris.y = Utils.median(rightIrisYPoints);
+            //assign median of leftPupil coordinates from last 5 frames
+            rightPupil.x = Utils.median(rightPupilXPoints);
+            rightPupil.y = Utils.median(rightPupilYPoints);
 
 
 
-            rightIrisXPoints.clear();
-            rightIrisYPoints.clear();
+            rightPupilXPoints.clear();
+            rightPupilYPoints.clear();
         }
 
         // draw point to visualise pupil
         Imgproc.circle(rgbEyeMat, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
 
         //for debuging only
-      //  System.out.print("Right iris x :"+ rightIris.x);
-      //  System.out.print("Right iris y : "+ rightIris.y);
+      //  System.out.print("Right pupil x :"+ rightPupil.x);
+      //  System.out.print("Right pupil y : "+ rightPupil.y);
       //  System.out.println("");
     }
 
     //Convert a Mat object (OpenCV) in the corresponding image(to show)
     private Image mat2Image(Mat frame) {
         int ch = frame.channels();
-        double[] data = frame.get((int) leftIris.x,(int) rightIris.y);
+        double[] data = frame.get((int) leftPupil.x,(int) rightPupil.y);
         for (int i=0; i<ch;i++){
             data[i] = data[i] * 2;
         }
-        frame.put((int) leftIris.x,(int) rightIris.y,data);
+        frame.put((int) leftPupil.x,(int) rightPupil.y,data);
 
         // create a temporary buffer
         MatOfByte buffer = new MatOfByte();
