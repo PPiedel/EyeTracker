@@ -11,6 +11,7 @@ import org.opencv.videoio.VideoCapture;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -48,9 +49,17 @@ public class FaceDetectionController {
     // rectangle used to extract eye region - ROI
     private Rect eyearea = new Rect();
 
-    Point iris = new Point();
-    List<Double> irisXPoints = new ArrayList<Double>();
-    List<Double> irisYPoints = new ArrayList<Double>();
+    private Point leftIris = new Point();
+    private List<Double> leftIrisXPoints = new ArrayList<Double>();
+    private List<Double> leftIrisYPoints = new ArrayList<Double>();
+
+    private Point rightIris = new Point();
+    private List<Double> rightIrisXPoints = new ArrayList<Double>();
+    private List<Double> rightIrisYPoints = new ArrayList<Double>();
+
+    private HashMap<String,Gaze> calibratePoints ;
+    int calibrationNumber = 0;
+
 
     private long frameNumber = 0;
 
@@ -58,12 +67,37 @@ public class FaceDetectionController {
      * Init the controller, at start time
      */
     protected void init() {
+        calibratePoints = new HashMap<String, Gaze>();
         this.capture = new VideoCapture();
-        this.faceCascade = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
-        lefEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
-        rightEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
+        this.faceCascade = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
+        lefEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
+        rightEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
         this.absoluteFaceSize = 0;
 
+    }
+
+    @FXML
+    protected void calibrate(){
+      switch (calibrationNumber){
+          case 0 :
+              calibratePoints.put("leftUpperCorner",new Gaze(leftIris,rightIris));
+              calibrationNumber++;
+              break;
+          case 1 :
+              calibratePoints.put("leftBottomCorner",new Gaze(leftIris,rightIris));
+              calibrationNumber++;
+              break;
+          case 2 :
+              calibratePoints.put("rightBottomCorner",new Gaze(leftIris,rightIris));
+              calibrationNumber++;
+              break;
+          case 3 :
+              calibratePoints.put("rightUpperCorner",new Gaze(leftIris,rightIris));
+              calibrationNumber++;
+              break;
+          default:
+              break;
+      }
     }
 
     /**
@@ -200,13 +234,13 @@ public class FaceDetectionController {
             Imgproc.rectangle(frame,eyearea_left.tl(),eyearea_left.br() , new Scalar(255,0, 0, 255), 2);
             Imgproc.rectangle(frame,eyearea_right.tl(),eyearea_right.br() , new Scalar(255, 0, 0, 255), 2);
 
-            detectEye(lefEyeClassifier,eyearea_left,100);
-            detectEye(lefEyeClassifier,eyearea_right,100);
+            detectLeftEye(lefEyeClassifier,eyearea_left,100);
+            detectRightEye(rightEyeClassifier,eyearea_right,100);
         }
 
     }
 
-    private Mat detectEye(CascadeClassifier clasificator, Rect area, int size) {
+    private Mat detectLeftEye(CascadeClassifier clasificator, Rect area, int size) {
         Mat template = new Mat();
         Mat mROI = grayFrame.submat(area);
         MatOfRect eyes = new MatOfRect();
@@ -227,7 +261,7 @@ public class FaceDetectionController {
             Imgproc.rectangle(rgbFrame, eye_only_rectangle.tl(), eye_only_rectangle.br(), new Scalar(255, 255, 0, 255), 2);
 
             //find the pupil inside the eye rect
-            detectAndDisplayPupil(eye_only_rectangle);
+            detectAndDisplayLeftPupil(eye_only_rectangle);
 
             return template;
         }
@@ -235,8 +269,37 @@ public class FaceDetectionController {
         return template;
     }
 
-    //find pupils - the darkness point vresion
-    private void detectAndDisplayPupil(Rect eyeRect){
+    private Mat detectRightEye(CascadeClassifier clasificator, Rect area, int size) {
+        Mat template = new Mat();
+        Mat mROI = grayFrame.submat(area);
+        MatOfRect eyes = new MatOfRect();
+
+        //isolate the eyes first
+        clasificator.detectMultiScale(mROI, eyes, 1.15, 2, Objdetect.CASCADE_FIND_BIGGEST_OBJECT
+                | Objdetect.CASCADE_SCALE_IMAGE, new Size(30, 30), new Size());
+
+        Rect[] eyesArray = eyes.toArray();
+        for (int i = 0; i < eyesArray.length;) {
+            Rect eye = eyesArray[i];
+            eye.x = area.x + eye.x;
+            eye.y = area.y + eye.y;
+            Rect eye_only_rectangle = new Rect((int) eye.tl().x, (int) (eye.tl().y + eye.height * 0.4), (int) eye.width,
+                    (int) (eye.height * 0.6));
+
+            //draw rectangle around each eye
+            Imgproc.rectangle(rgbFrame, eye_only_rectangle.tl(), eye_only_rectangle.br(), new Scalar(255, 255, 0, 255), 2);
+
+            //find the pupil inside the eye rect
+            detectAndDisplayRightPupil(eye_only_rectangle);
+
+            return template;
+        }
+
+        return template;
+    }
+
+    //find rith pupil - the darkness point vresion
+    private void detectAndDisplayLeftPupil(Rect eyeRect){
         Mat grayEyeMat = grayFrame.submat(eyeRect);
         Mat rgbEyeMat = rgbFrame.submat(eyeRect);
 
@@ -249,30 +312,74 @@ public class FaceDetectionController {
         Core.MinMaxLocResult mmG = Core.minMaxLoc(grayEyeMat);
 
 
-        irisXPoints.add(mmG.minLoc.x + eyeRect.x);
-        irisYPoints.add(mmG.minLoc.y + eyeRect.y);
+        leftIrisXPoints.add(mmG.minLoc.x + eyeRect.x);
+        leftIrisYPoints.add(mmG.minLoc.y + eyeRect.y);
 
         if (frameNumber%5==0){
 
-            //assign median of iris coordinates from last 5 frames
-            iris.x = Utils.median(irisXPoints);
-            iris.y = Utils.median(irisYPoints);
+            //assign median of leftIris coordinates from last 5 frames
+            leftIris.x = Utils.median(leftIrisXPoints);
+            leftIris.y = Utils.median(leftIrisYPoints);
 
-            irisXPoints.clear();
-            irisYPoints.clear();
+            leftIrisXPoints.clear();
+            leftIrisYPoints.clear();
         }
 
         // draw point to visualise pupil
         Imgproc.circle(rgbEyeMat, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
 
         //for debuging only
-        System.out.print("Iris x :"+iris.x);
-       System.out.print("Iris y : "+iris.y);
+        System.out.print("Left leftIris x :"+ leftIris.x);
+       System.out.print("Left leftIris y : "+ leftIris.y);
        System.out.println("");
+    }
+
+    private void detectAndDisplayRightPupil(Rect eyeRect){
+        Mat grayEyeMat = grayFrame.submat(eyeRect);
+        Mat rgbEyeMat = rgbFrame.submat(eyeRect);
+
+
+        Imgproc.GaussianBlur(grayEyeMat, grayEyeMat, new Size(9, 9), 2, 2);
+        Core.addWeighted(grayEyeMat,1.5,grayEyeMat,-0.5,0,grayEyeMat);
+
+
+        // find the darkness point
+        Core.MinMaxLocResult mmG = Core.minMaxLoc(grayEyeMat);
+
+
+        rightIrisXPoints.add(mmG.minLoc.x + eyeRect.x);
+        rightIrisYPoints.add(mmG.minLoc.y + eyeRect.y);
+
+        if (frameNumber%5==0){
+
+            //assign median of leftIris coordinates from last 5 frames
+            rightIris.x = Utils.median(rightIrisXPoints);
+            rightIris.y = Utils.median(rightIrisYPoints);
+
+
+
+            rightIrisXPoints.clear();
+            rightIrisYPoints.clear();
+        }
+
+        // draw point to visualise pupil
+        Imgproc.circle(rgbEyeMat, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
+
+        //for debuging only
+        System.out.print("Right iris x :"+ rightIris.x);
+        System.out.print("Right iris y : "+ rightIris.y);
+        System.out.println("");
     }
 
     //Convert a Mat object (OpenCV) in the corresponding image(to show)
     private Image mat2Image(Mat frame) {
+        int ch = frame.channels();
+        double[] data = frame.get((int) leftIris.x,(int) rightIris.y);
+        for (int i=0; i<ch;i++){
+            data[i] = data[i] * 2;
+        }
+        frame.put((int) leftIris.x,(int) rightIris.y,data);
+
         // create a temporary buffer
         MatOfByte buffer = new MatOfByte();
         // encode the rgbFrame in the buffer, according to the PNG format
