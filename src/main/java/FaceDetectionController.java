@@ -69,9 +69,9 @@ public class FaceDetectionController {
     protected void init() {
         calibratePoints = new HashMap<String, Gaze>();
         this.capture = new VideoCapture();
-        this.faceCascade = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
-        lefEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
-        rightEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
+        this.faceCascade = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
+        lefEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
+        rightEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
         this.absoluteFaceSize = 0;
 
     }
@@ -107,6 +107,14 @@ public class FaceDetectionController {
               break;
       }
     }
+
+    private Point calculatePointOnImage(Point point){
+        Point pointOnImage = new Point();
+
+        return  pointOnImage;
+    }
+
+
 
 
 

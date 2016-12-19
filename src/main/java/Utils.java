@@ -24,4 +24,8 @@ public class Utils {
        }
        return median;
     }
+
+    public static double calculateXDistance(Point point1, Point point2){
+        return  Math.abs(point2.x - point1.x);
+    }
 }
