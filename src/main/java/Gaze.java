@@ -28,4 +28,9 @@ public class Gaze {
     public void setRightIris(Point rightIris) {
         this.rightIris = rightIris;
     }
+
+    @Override
+    public String toString() {
+        return "Gaze : " + "leftIris = ( " + leftIris.x + ","+leftIris.y+" )" + "rightIris = (" + rightIris.x + "," + rightIris.y+")" ;
+    }
 }

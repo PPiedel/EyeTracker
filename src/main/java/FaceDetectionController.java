@@ -58,7 +58,7 @@ public class FaceDetectionController {
     private List<Double> rightIrisYPoints = new ArrayList<Double>();
 
     private HashMap<String,Gaze> calibratePoints ;
-    int calibrationNumber = 0;
+    private int calibrationNumber = 0;
 
 
     private long frameNumber = 0;
@@ -69,9 +69,9 @@ public class FaceDetectionController {
     protected void init() {
         calibratePoints = new HashMap<String, Gaze>();
         this.capture = new VideoCapture();
-        this.faceCascade = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
-        lefEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
-        rightEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
+        this.faceCascade = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
+        lefEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
+        rightEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
         this.absoluteFaceSize = 0;
 
     }
@@ -82,23 +82,33 @@ public class FaceDetectionController {
           case 0 :
               calibratePoints.put("leftUpperCorner",new Gaze(leftIris,rightIris));
               calibrationNumber++;
+              Gaze leftUpperCorner = calibratePoints.get("leftUpperCorner");
+              System.out.println("Left upper corner : " + leftUpperCorner.toString());
               break;
           case 1 :
               calibratePoints.put("leftBottomCorner",new Gaze(leftIris,rightIris));
+              Gaze leftBottomCorner = calibratePoints.get("leftBottomCorner");
+              System.out.println("Left bottom corner : " + leftBottomCorner.toString());
               calibrationNumber++;
               break;
           case 2 :
               calibratePoints.put("rightBottomCorner",new Gaze(leftIris,rightIris));
+              Gaze rightBottomCorner = calibratePoints.get("rightBottomCorner");
+              System.out.println("Right bottom corner : " + rightBottomCorner.toString());
               calibrationNumber++;
               break;
           case 3 :
               calibratePoints.put("rightUpperCorner",new Gaze(leftIris,rightIris));
+              Gaze rightUpperCorner = calibratePoints.get("rightUpperCorner");
+              System.out.println("Right upper corner : " + rightUpperCorner.toString());
               calibrationNumber++;
               break;
           default:
               break;
       }
     }
+
+
 
     @FXML
     protected void syntezise (){
@@ -122,7 +132,8 @@ public class FaceDetectionController {
 
     @FXML
     protected void reset (){
-
+        calibrationNumber=0;
+        calibratePoints.clear();
     }
 
     /**
@@ -354,9 +365,9 @@ public class FaceDetectionController {
         Imgproc.circle(rgbEyeMat, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
 
         //for debuging only
-        System.out.print("Left leftIris x :"+ leftIris.x);
-       System.out.print("Left leftIris y : "+ leftIris.y);
-       System.out.println("");
+       // System.out.print("Left leftIris x :"+ leftIris.x);
+       //System.out.print("Left leftIris y : "+ leftIris.y);
+      // System.out.println("");
     }
 
     private void detectAndDisplayRightPupil(Rect eyeRect){
@@ -391,9 +402,9 @@ public class FaceDetectionController {
         Imgproc.circle(rgbEyeMat, mmG.minLoc,2, new Scalar(255, 255, 255, 255),2);
 
         //for debuging only
-        System.out.print("Right iris x :"+ rightIris.x);
-        System.out.print("Right iris y : "+ rightIris.y);
-        System.out.println("");
+      //  System.out.print("Right iris x :"+ rightIris.x);
+      //  System.out.print("Right iris y : "+ rightIris.y);
+      //  System.out.println("");
     }
 
     //Convert a Mat object (OpenCV) in the corresponding image(to show)
