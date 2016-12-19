@@ -12,6 +12,7 @@ import org.opencv.videoio.VideoCapture;
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -55,11 +56,12 @@ public class FaceDetectionController {
     private List<Double> rightPupilXPoints = new ArrayList<Double>();
     private List<Double> rightPupilYPoints = new ArrayList<Double>();
 
-    private HashMap<String,Gaze> calibratePoints = new HashMap<String, Gaze>(4) ;
+    private Hashtable<String,Gaze> calibratePoints ;
     private int calibrationNumber = 0;
 
     private double xLeftPupilRange = 0;
     private double yLeftPupilRange = 0;
+
     private double xRightPupilRange = 0;
     private double yRightPupilRange = 0;
 
@@ -69,7 +71,7 @@ public class FaceDetectionController {
      * Init the controller, at start time
      */
     protected void init() {
-        calibratePoints = new HashMap<String, Gaze>();
+        calibratePoints = new Hashtable<String, Gaze>();
         this.capture = new VideoCapture();
         this.faceCascade = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
         lefEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
@@ -82,25 +84,27 @@ public class FaceDetectionController {
     protected void calibrate(){
       switch (calibrationNumber){
           case 0 :
-              calibratePoints.put("leftUpperCorner",new Gaze(leftPupil, rightPupil));
+              calibratePoints.put("leftUpperCorner",new Gaze(new Point(leftPupil.x,leftPupil.y), new Point(rightPupil.x,rightPupil.y)));
               calibrationNumber++;
               Gaze leftUpperCorner = calibratePoints.get("leftUpperCorner");
               System.out.println("Left upper corner : " + leftUpperCorner.toString());
+
+
               break;
           case 1 :
-              calibratePoints.put("leftBottomCorner",new Gaze(leftPupil, rightPupil));
+              calibratePoints.put("leftBottomCorner",new Gaze(new Point(leftPupil.x,leftPupil.y), new Point(rightPupil.x,rightPupil.y)));
               Gaze leftBottomCorner = calibratePoints.get("leftBottomCorner");
               System.out.println("Left bottom corner : " + leftBottomCorner.toString());
               calibrationNumber++;
               break;
           case 2 :
-              calibratePoints.put("rightBottomCorner",new Gaze(leftPupil, rightPupil));
+              calibratePoints.put("rightBottomCorner",new Gaze(new Point(leftPupil.x,leftPupil.y), new Point(rightPupil.x,rightPupil.y)));
               Gaze rightBottomCorner = calibratePoints.get("rightBottomCorner");
               System.out.println("Right bottom corner : " + rightBottomCorner.toString());
               calibrationNumber++;
               break;
           case 3 :
-              calibratePoints.put("rightUpperCorner",new Gaze(leftPupil, rightPupil));
+              calibratePoints.put("rightUpperCorner",new Gaze(new Point(leftPupil.x,leftPupil.y), new Point(rightPupil.x,rightPupil.y)));
               Gaze rightUpperCorner = calibratePoints.get("rightUpperCorner");
               System.out.println("Right upper corner : " + rightUpperCorner.toString());
               calibrationNumber++;
@@ -116,6 +120,11 @@ public class FaceDetectionController {
     private void assignPupilsRanges() {
         double xLeftPupilUpperRange = calculateXPupilRange(calibratePoints.get("leftUpperCorner"),calibratePoints.get("rightUpperCorner"),Pupils.LEFT_PUPIL);
         double xLeftPupilBottomRange = calculateXPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("rightBottomCorner"), Pupils.LEFT_PUPIL);
+
+
+
+
+
         xLeftPupilRange = (xLeftPupilBottomRange+xLeftPupilUpperRange)/2;
 
         double xRightPupilUpperRange = calculateXPupilRange(calibratePoints.get("leftUpperCorner"),calibratePoints.get("rightUpperCorner"),Pupils.RIGHT_PUPIL);
@@ -129,6 +138,10 @@ public class FaceDetectionController {
         double yLeftPupilUpperRange = calculateYPupilRange(calibratePoints.get("leftUpperCorner"),calibratePoints.get("rightUpperCorner"),Pupils.LEFT_PUPIL);
         double yLeftPupilBottomRange = calculateYPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("rightBottomCorner"), Pupils.LEFT_PUPIL);
         yLeftPupilRange = (yLeftPupilBottomRange+yLeftPupilUpperRange)/2;
+
+        //System.out.println("xLeftPupilRange : "+xLeftPupilRange + ", yLeftPupilRange : " + yLeftPupilRange);
+        //System.out.println("xRightPupilRange : " + xRightPupilRange + " , yRightPupilRange : "+ yRightPupilRange);
+
 
 
     }

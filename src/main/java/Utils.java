@@ -32,4 +32,5 @@ public class Utils {
     public static double calculateYDistance(Point point1, Point point2){
         return  Math.abs(point2.y - point1.y);
     }
+
 }
