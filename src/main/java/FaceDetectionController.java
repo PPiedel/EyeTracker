@@ -100,6 +100,31 @@ public class FaceDetectionController {
       }
     }
 
+    @FXML
+    protected void syntezise (){
+
+    }
+
+    @FXML
+    protected void mode (){
+
+    }
+
+    @FXML
+    protected void scale (){
+
+    }
+
+    @FXML
+    protected void load (){
+
+    }
+
+    @FXML
+    protected void reset (){
+
+    }
+
     /**
      * The action triggered by pushing the button on the GUI
      */
