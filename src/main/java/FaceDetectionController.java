@@ -3,12 +3,14 @@ import javafx.scene.control.Button;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import org.opencv.core.*;
+import org.opencv.core.Point;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 import org.opencv.objdetect.Objdetect;
 import org.opencv.videoio.VideoCapture;
 
+import java.awt.*;
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -20,8 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 
 public class FaceDetectionController {
-    private final int framesPerSecond = 25;
-    private final int initialDelay = 0;
+
 
     @FXML
     private Button cameraButton;
@@ -29,24 +30,27 @@ public class FaceDetectionController {
     @FXML
     private ImageView originalFrame;
 
-    // a timer for acquiring the video stream
-    private ScheduledExecutorService timer;
-    // the OpenCV object that performs the video capture
-    private VideoCapture capture;
-    // a flag to change the button behavior
-    private boolean cameraActive;
 
+
+    /*OpenCV*/
+    private ScheduledExecutorService timer;
+    private VideoCapture capture;
+    private boolean cameraActive;
     // classifiers
     private CascadeClassifier faceCascade ;
     private CascadeClassifier   lefEyeClassifier;
     private CascadeClassifier   rightEyeClassifier;
-
+    //Mats
     private Mat rgbFrame;
     private Mat grayFrame;
-
-    // match value
     private int absoluteFaceSize;
+    //video parameters
+    private long frameNumber = 0;
+    private final int framesPerSecond = 25;
+    private final int initialDelay = 0;
 
+
+    //eyes,pupils,gaze
     private Point leftPupil = new Point();
     private List<Double> leftPupilXPoints = new ArrayList<Double>();
     private List<Double> leftPupilYPoints = new ArrayList<Double>();
@@ -58,9 +62,9 @@ public class FaceDetectionController {
     private Hashtable<String,Gaze> calibratePoints ;
     private int calibrationNumber = 0;
 
+    //pupils ranges
     private double xLeftPupilRange = 0;
     private double yLeftPupilRange = 0;
-
     private double xRightPupilRange = 0;
     private double yRightPupilRange = 0;
 
@@ -70,7 +74,9 @@ public class FaceDetectionController {
     double rightXOriginOfRightPupil;
     double upperYOriginOfRightPupil;
 
-    private long frameNumber = 0;
+    Point gazePoint = new Point();
+
+
 
     /**
      * Init the controller, at start time
@@ -91,9 +97,6 @@ public class FaceDetectionController {
           case 0 :
               calibratePoints.put("leftUpperCorner",new Gaze(new Point(leftPupil.x,leftPupil.y), new Point(rightPupil.x,rightPupil.y)));
               calibrationNumber++;
-
-
-
               break;
           case 1 :
               calibratePoints.put("leftBottomCorner",new Gaze(new Point(leftPupil.x,leftPupil.y), new Point(rightPupil.x,rightPupil.y)));
@@ -101,12 +104,11 @@ public class FaceDetectionController {
               calibrationNumber++;
               break;
           case 2 :
-
+              calibratePoints.put("rightBottomCorner",new Gaze(new Point(leftPupil.x,leftPupil.y), new Point(rightPupil.x,rightPupil.y)));
               calibrationNumber++;
               break;
           case 3 :
               calibratePoints.put("rightUpperCorner",new Gaze(new Point(leftPupil.x,leftPupil.y), new Point(rightPupil.x,rightPupil.y)));
-
               calibrationNumber++;
 
               assignPupilsRanges();
@@ -160,31 +162,18 @@ public class FaceDetectionController {
         rightXOriginOfLeftPupil = (calibratePoints.get("rightUpperCorner").getLeftPupil().x + calibratePoints.get("rightBottomCorner").getLeftPupil().x)/2;
         upperYOriginOfLeftPupil = (calibratePoints.get("rightUpperCorner").getLeftPupil().y+calibratePoints.get("leftUpperCorner").getLeftPupil().y)/2;
 
+        //System.out.println("Right x of left pupil : "+rightXOriginOfLeftPupil);
+        System.out.println("Upper y of left pupil : "+upperYOriginOfLeftPupil);
+
         //right pupil
         rightXOriginOfRightPupil = (calibratePoints.get("rightUpperCorner").getRightPupil().x + calibratePoints.get("rightBottomCorner").getRightPupil().x)/2;
         upperYOriginOfRightPupil = (calibratePoints.get("rightUpperCorner").getRightPupil().y + calibratePoints.get("leftUpperCorner").getRightPupil().y)/2;
+
+        System.out.println("Upper y of right pupil : "+upperYOriginOfRightPupil);
     }
 
 
-    public Point calculateGazepoint(Gaze currentGaze){
-        Point gazePoint = new Point();
 
-        //left pupil gaze point
-        Point leftPupilGazePoint = new Point();
-        leftPupilGazePoint.x = ((currentGaze.getLeftPupil().x- rightXOriginOfLeftPupil)/xLeftPupilRange)*originalFrame.getFitWidth();
-        leftPupilGazePoint.y = ((currentGaze.getLeftPupil().y - upperYOriginOfLeftPupil)/yLeftPupilRange)*originalFrame.getFitHeight();
-
-        //right pupil gaze point
-        Point rightPupilGazePoint = new Point();
-        rightPupilGazePoint.x = ((currentGaze.getRightPupil().x- rightXOriginOfRightPupil)/xRightPupilRange)*originalFrame.getFitWidth();
-        rightPupilGazePoint.y = ((currentGaze.getRightPupil().x - upperYOriginOfLeftPupil)/yRightPupilRange)*originalFrame.getFitHeight();
-
-        //returned gaze point is average of left and right pupil gaze points
-        gazePoint.x = (leftPupilGazePoint.x+rightPupilGazePoint.x)/2;
-        gazePoint.y = (leftPupilGazePoint.y+rightPupilGazePoint.y)/2;
-
-        return gazePoint;
-    }
 
     public double calculateXPupilRange(Gaze leftPosition, Gaze rightPosition, Pupils pupil){
         if (pupil==Pupils.LEFT_PUPIL){
@@ -240,6 +229,7 @@ public class FaceDetectionController {
     protected void startCamera() {
         // set a fixed width for the rgbFrame
         originalFrame.setFitWidth(600);
+        //originalFrame.setFitHeight(800);
         // preserve image ratio
         originalFrame.setPreserveRatio(true);
 
@@ -315,6 +305,10 @@ public class FaceDetectionController {
 
                     // convert the Mat object (OpenCV) to Image (JavaFX)
                     imageToShow = mat2Image(rgbFrame);
+
+                    if (calibrationNumber==3){
+
+                    }
                 }
 
             }
@@ -369,8 +363,46 @@ public class FaceDetectionController {
 
             detectLeftEye(lefEyeClassifier,eyearea_left,100);
             detectRightEye(rightEyeClassifier,eyearea_right,100);
+
+            if (frameNumber%5==0) {
+                gazePoint = calculateGazepoint(new Gaze(leftPupil, rightPupil));
+            }
+
+
         }
 
+    }
+
+    public Point calculateGazepoint(Gaze currentGaze){
+        Point gazePoint = new Point();
+
+       // System.out.println("Current gaze left pupil y : "+currentGaze.getLeftPupil().y);
+       // System.out.println("Current gaze right pupil y : "+currentGaze.getRightPupil().y);
+
+        //left pupil gaze point
+        Point leftPupilGazePoint = new Point();
+        leftPupilGazePoint.x = ((currentGaze.getLeftPupil().x- rightXOriginOfLeftPupil)/xLeftPupilRange)*originalFrame.getFitWidth();
+        leftPupilGazePoint.y = ((currentGaze.getLeftPupil().y - upperYOriginOfLeftPupil)/yLeftPupilRange)*originalFrame.getFitHeight();
+
+        //System.out.println("Left pupil gaze point y  : "+leftPupilGazePoint.y);
+
+        //right pupil gaze point
+        Point rightPupilGazePoint = new Point();
+        rightPupilGazePoint.x = ((currentGaze.getRightPupil().x- rightXOriginOfRightPupil)/xRightPupilRange)*originalFrame.getFitWidth();
+        rightPupilGazePoint.y = ((currentGaze.getRightPupil().y - upperYOriginOfLeftPupil)/yRightPupilRange)*originalFrame.getFitHeight();
+
+        //System.out.println("Right pupil gaze point y  : "+leftPupilGazePoint.y);
+
+        //returned gaze point is average of left and right pupil gaze points
+        //za x podstawiam doplenienie do 800
+        gazePoint.x = 800 -  (leftPupilGazePoint.x+rightPupilGazePoint.x)/2;
+        gazePoint.y = (leftPupilGazePoint.y+rightPupilGazePoint.y)/2;
+
+       System.out.println("Gaze point : "+gazePoint.toString());
+
+        Imgproc.circle(rgbFrame,gazePoint,10,new Scalar(255, 255, 0, 255),2);
+
+        return gazePoint;
     }
 
     private Mat detectLeftEye(CascadeClassifier clasificator, Rect area, int size) {
@@ -431,7 +463,7 @@ public class FaceDetectionController {
         return template;
     }
 
-    //find rith pupil - the darkness point vresion
+    //find rigth pupil - the darkness point vresion
     private void detectAndDisplayLeftPupil(Rect eyeRect){
         Mat grayEyeMat = grayFrame.submat(eyeRect);
         Mat rgbEyeMat = rgbFrame.submat(eyeRect);

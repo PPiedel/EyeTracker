@@ -7,6 +7,8 @@ public class Gaze {
     private Point leftPupil;
     private Point rightPupil;
 
+    public Gaze() {
+    }
 
     public Gaze(Point leftIris, Point rightPupil) {
         this.leftPupil = leftIris;
