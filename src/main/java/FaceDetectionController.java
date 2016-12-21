@@ -10,7 +10,6 @@ import org.opencv.objdetect.CascadeClassifier;
 import org.opencv.objdetect.Objdetect;
 import org.opencv.videoio.VideoCapture;
 
-import java.awt.*;
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -69,12 +68,12 @@ public class FaceDetectionController {
     private double yRightPupilRange = 0;
 
     //coordinate origin points
-    double rightXOriginOfLeftPupil;
+    double xOriginOfLeftPupil;
     double upperYOriginOfLeftPupil;
     double rightXOriginOfRightPupil;
     double upperYOriginOfRightPupil;
 
-    Point gazePoint = new Point();
+    Point gazePoint = new Point(0,0);
 
 
 
@@ -142,13 +141,13 @@ public class FaceDetectionController {
         double xRightPupilBottomRange = calculateXPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("rightBottomCorner"), Pupils.RIGHT_PUPIL);
         xRightPupilRange = (xRightPupilUpperRange+xRightPupilBottomRange)/2;
 
-        double yRightPupilUpperRange = calculateYPupilRange(calibratePoints.get("leftUpperCorner"),calibratePoints.get("rightUpperCorner"),Pupils.RIGHT_PUPIL);
-        double yRightPupilBottomRange = calculateYPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("rightBottomCorner"), Pupils.RIGHT_PUPIL);
-        yRightPupilRange = (yRightPupilUpperRange+yRightPupilBottomRange)/2;
+        double yRightPupilLeftSideRange = calculateYPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("leftUpperCorner"),Pupils.RIGHT_PUPIL);
+        double yRightPupilRightSideRange = calculateYPupilRange(calibratePoints.get("rightBottomCorner"),calibratePoints.get("rightUpperCorner"), Pupils.RIGHT_PUPIL);
+        yRightPupilRange = (yRightPupilLeftSideRange+yRightPupilRightSideRange)/2;
 
-        double yLeftPupilUpperRange = calculateYPupilRange(calibratePoints.get("leftUpperCorner"),calibratePoints.get("rightUpperCorner"),Pupils.LEFT_PUPIL);
-        double yLeftPupilBottomRange = calculateYPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("rightBottomCorner"), Pupils.LEFT_PUPIL);
-        yLeftPupilRange = (yLeftPupilBottomRange+yLeftPupilUpperRange)/2;
+        double yLeftPupilLeftSideRange = calculateYPupilRange(calibratePoints.get("leftBottomCorner"),calibratePoints.get("leftUpperCorner"),Pupils.LEFT_PUPIL);
+        double yLeftPupilRightSideRange = calculateYPupilRange(calibratePoints.get("rightBottomCorner"),calibratePoints.get("rightUpperCorner"), Pupils.LEFT_PUPIL);
+        yLeftPupilRange = (yLeftPupilRightSideRange+yLeftPupilLeftSideRange)/2;
 
         System.out.println("xLeftPupilRange : "+xLeftPupilRange + ", yLeftPupilRange : " + yLeftPupilRange);
         System.out.println("xRightPupilRange : " + xRightPupilRange + " , yRightPupilRange : "+ yRightPupilRange);
@@ -159,10 +158,10 @@ public class FaceDetectionController {
 
     public void assignCoordinateOriginPoints(){
         //left pupil
-        rightXOriginOfLeftPupil = (calibratePoints.get("rightUpperCorner").getLeftPupil().x + calibratePoints.get("rightBottomCorner").getLeftPupil().x)/2;
+        xOriginOfLeftPupil = (calibratePoints.get("rightUpperCorner").getLeftPupil().x + calibratePoints.get("rightBottomCorner").getLeftPupil().x)/2;
         upperYOriginOfLeftPupil = (calibratePoints.get("rightUpperCorner").getLeftPupil().y+calibratePoints.get("leftUpperCorner").getLeftPupil().y)/2;
 
-        //System.out.println("Right x of left pupil : "+rightXOriginOfLeftPupil);
+        //System.out.println("Right x of left pupil : "+xOriginOfLeftPupil);
         System.out.println("Upper y of left pupil : "+upperYOriginOfLeftPupil);
 
         //right pupil
@@ -185,12 +184,12 @@ public class FaceDetectionController {
         return 0;
     }
 
-    public double calculateYPupilRange(Gaze leftPosition, Gaze rightPosition, Pupils pupil){
+    public double calculateYPupilRange(Gaze bottomPosition, Gaze upperPosition, Pupils pupil){
         if (pupil==Pupils.LEFT_PUPIL){
-            return Utils.calculateYDistance(leftPosition.getLeftPupil(),rightPosition.getLeftPupil());
+            return Utils.calculateYDistance(bottomPosition.getLeftPupil(),upperPosition.getLeftPupil());
         }
         else if (pupil==Pupils.RIGHT_PUPIL){
-            return Utils.calculateYDistance(leftPosition.getRightPupil(),rightPosition.getRightPupil());
+            return Utils.calculateYDistance(bottomPosition.getRightPupil(),upperPosition.getRightPupil());
         }
         return 0;
     }
@@ -228,8 +227,8 @@ public class FaceDetectionController {
     @FXML
     protected void startCamera() {
         // set a fixed width for the rgbFrame
-        originalFrame.setFitWidth(600);
-        //originalFrame.setFitHeight(800);
+        originalFrame.setFitWidth(800);
+        //originalFrame.setFitHeight(600);
         // preserve image ratio
         originalFrame.setPreserveRatio(true);
 
@@ -381,22 +380,22 @@ public class FaceDetectionController {
 
         //left pupil gaze point
         Point leftPupilGazePoint = new Point();
-        leftPupilGazePoint.x = ((currentGaze.getLeftPupil().x- rightXOriginOfLeftPupil)/xLeftPupilRange)*originalFrame.getFitWidth();
+        leftPupilGazePoint.x = ((currentGaze.getLeftPupil().x- xOriginOfLeftPupil)/xLeftPupilRange)*originalFrame.getFitWidth();
         leftPupilGazePoint.y = ((currentGaze.getLeftPupil().y - upperYOriginOfLeftPupil)/yLeftPupilRange)*originalFrame.getFitHeight();
 
         //System.out.println("Left pupil gaze point y  : "+leftPupilGazePoint.y);
 
         //right pupil gaze point
         Point rightPupilGazePoint = new Point();
-        rightPupilGazePoint.x = ((currentGaze.getRightPupil().x- rightXOriginOfRightPupil)/xRightPupilRange)*originalFrame.getFitWidth();
-        rightPupilGazePoint.y = ((currentGaze.getRightPupil().y - upperYOriginOfLeftPupil)/yRightPupilRange)*originalFrame.getFitHeight();
+        rightPupilGazePoint.x = ((currentGaze.getRightPupil().x - rightXOriginOfRightPupil)/xRightPupilRange)*originalFrame.getFitWidth();
+        rightPupilGazePoint.y = ((currentGaze.getRightPupil().y - upperYOriginOfRightPupil)/yRightPupilRange)*originalFrame.getFitHeight();
 
         //System.out.println("Right pupil gaze point y  : "+leftPupilGazePoint.y);
 
         //returned gaze point is average of left and right pupil gaze points
-        //za x podstawiam doplenienie do 800
+        //za x,y podstawiam doplenienie do 800
         gazePoint.x = 800 -  (leftPupilGazePoint.x+rightPupilGazePoint.x)/2;
-        gazePoint.y = (leftPupilGazePoint.y+rightPupilGazePoint.y)/2;
+        gazePoint.y =   (leftPupilGazePoint.y+rightPupilGazePoint.y)/2;
 
        System.out.println("Gaze point : "+gazePoint.toString());
 
