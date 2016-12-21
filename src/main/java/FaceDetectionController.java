@@ -11,7 +11,6 @@ import org.opencv.videoio.VideoCapture;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -65,6 +64,12 @@ public class FaceDetectionController {
     private double xRightPupilRange = 0;
     private double yRightPupilRange = 0;
 
+    //coordinate origin points
+    double rightXOriginOfLeftPupil;
+    double upperYOriginOfLeftPupil;
+    double rightXOriginOfRightPupil;
+    double upperYOriginOfRightPupil;
+
     private long frameNumber = 0;
 
     /**
@@ -73,9 +78,9 @@ public class FaceDetectionController {
     protected void init() {
         calibratePoints = new Hashtable<String, Gaze>();
         this.capture = new VideoCapture();
-        this.faceCascade = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
-        lefEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
-        rightEyeClassifier = new CascadeClassifier("L:\\Studia\\ProgrammingProjects\\EyeTrackerTest\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
+        this.faceCascade = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_frontalface_alt.xml");
+        lefEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_lefteye_2splits.xml");
+        rightEyeClassifier = new CascadeClassifier("C:\\Users\\praktykant\\IdeaProjects\\Test\\src\\main\\resources\\haarcascade_righteye_2splits.xml");
         this.absoluteFaceSize = 0;
 
     }
@@ -105,6 +110,8 @@ public class FaceDetectionController {
               calibrationNumber++;
 
               assignPupilsRanges();
+
+              assignCoordinateOriginPoints();
 
               break;
           default:
@@ -146,6 +153,37 @@ public class FaceDetectionController {
 
 
 
+    }
+
+    public void assignCoordinateOriginPoints(){
+        //left pupil
+        rightXOriginOfLeftPupil = (calibratePoints.get("rightUpperCorner").getLeftPupil().x + calibratePoints.get("rightBottomCorner").getLeftPupil().x)/2;
+        upperYOriginOfLeftPupil = (calibratePoints.get("rightUpperCorner").getLeftPupil().y+calibratePoints.get("leftUpperCorner").getLeftPupil().y)/2;
+
+        //right pupil
+        rightXOriginOfRightPupil = (calibratePoints.get("rightUpperCorner").getRightPupil().x + calibratePoints.get("rightBottomCorner").getRightPupil().x)/2;
+        upperYOriginOfRightPupil = (calibratePoints.get("rightUpperCorner").getRightPupil().y + calibratePoints.get("leftUpperCorner").getRightPupil().y)/2;
+    }
+
+
+    public Point calculateGazepoint(Gaze currentGaze){
+        Point gazePoint = new Point();
+
+        //left pupil gaze point
+        Point leftPupilGazePoint = new Point();
+        leftPupilGazePoint.x = ((currentGaze.getLeftPupil().x- rightXOriginOfLeftPupil)/xLeftPupilRange)*originalFrame.getFitWidth();
+        leftPupilGazePoint.y = ((currentGaze.getLeftPupil().y - upperYOriginOfLeftPupil)/yLeftPupilRange)*originalFrame.getFitHeight();
+
+        //right pupil gaze point
+        Point rightPupilGazePoint = new Point();
+        rightPupilGazePoint.x = ((currentGaze.getRightPupil().x- rightXOriginOfRightPupil)/xRightPupilRange)*originalFrame.getFitWidth();
+        rightPupilGazePoint.y = ((currentGaze.getRightPupil().x - upperYOriginOfLeftPupil)/yRightPupilRange)*originalFrame.getFitHeight();
+
+        //returned gaze point is average of left and right pupil gaze points
+        gazePoint.x = (leftPupilGazePoint.x+rightPupilGazePoint.x)/2;
+        gazePoint.y = (leftPupilGazePoint.y+rightPupilGazePoint.y)/2;
+
+        return gazePoint;
     }
 
     public double calculateXPupilRange(Gaze leftPosition, Gaze rightPosition, Pupils pupil){
